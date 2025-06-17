@@ -1,7 +1,7 @@
 
 # 🧠 Skin Lesion Classification System
 
-![System Architecture](https://i.imgur.com/mXb3FlU.png)
+
 
 ## A Complete MLOps Pipeline for Medical Image Diagnosis
 
