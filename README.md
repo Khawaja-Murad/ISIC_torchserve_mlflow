@@ -1,166 +1,172 @@
-# Skin Lesion Classification System
+
+# 🧠 Skin Lesion Classification System
 
 ![System Architecture](https://i.imgur.com/mXb3FlU.png)
 
-## A Comprehensive MLOps Solution for Medical Image Analysis
+## A Complete MLOps Pipeline for Medical Image Diagnosis
 
-This project implements an end-to-end skin lesion classification system using state-of-the-art deep learning techniques. The solution integrates TorchServe for model serving, MLflow for experiment tracking and model management, and Streamlit for an intuitive web interface. Designed specifically for dermatological applications, this system can identify 9 different types of skin lesions with clinical-grade accuracy.
+This project delivers an end-to-end deep learning solution for classifying **skin lesions into 9 diagnostic categories**. It uses a fine-tuned Vision Transformer (ViT) model trained on the ISIC 2019 dataset via **Kaggle**, and integrates seamlessly with **TorchServe** for model serving, **MLflow** for experiment tracking and model versioning, and **Streamlit** for an interactive diagnostic UI.
 
-## Key Features
+---
 
-- **Medical-Grade Classification**: Identifies 9 types of skin lesions with detailed probability distributions
-- **End-to-End MLOps Pipeline**: From model training to deployment and monitoring
-- **Interactive Visualization**: Intuitive probability displays for clinical decision support
-- **Model Version Control**: Track and manage different model versions with MLflow
-- **Production Monitoring**: Real-time performance metrics and prediction tracking
-- **Privacy-First Design**: Runs entirely on your local infrastructure
+## 🔍 Key Highlights
 
-## System Architecture
+* 🧠 **ViT-based Classifier**: Trained on Kaggle using state-of-the-art techniques
+* 🔁 **MLOps-Ready**: Includes model serving, tracking, and UI — all container-free and locally deployable
+* 📈 **MLflow Integration**: Log, version, and monitor experiments and predictions
+* 🚀 **TorchServe Deployment**: Easily serve PyTorch models as APIs
+* 🌐 **Streamlit Frontend**: Drag & drop interface for quick analysis
+* 🔒 **Local & Private**: All systems run locally — no cloud or external dependencies
 
-```mermaid
-graph TD
-    A[Streamlit UI] -->|Upload Image| B(TorchServe API)
-    B -->|Prediction| C[Streamlit Display]
-    D[MLflow Registry] -->|Model Version| E[TorchServe]
-    F[Training Pipeline] -->|Log Model| D
-    G[Local GPU/CPU] --> F
-    H[Local Storage] -->|Image Data| F
+---
+
+## 📦 Tech Stack
+
+* **Training**: PyTorch, Vision Transformer (ViT), Kaggle Notebook
+* **Model Serving**: TorchServe
+* **Experiment Tracking**: MLflow
+* **Frontend**: Streamlit
+* **Image Handling**: Pillow, OpenCV
+* **Visualization**: Matplotlib, Plotly
+
+---
+
+## 🛠️ Training (on Kaggle)
+
+Training was performed on [Kaggle](https://www.kaggle.com/) using its free GPU resources.
+
+### To Train on Kaggle:
+
+1. Upload your data to Kaggle or use ISIC 2019 via external URL.
+2. Use the notebook in `/training/train.py` as a Kaggle Notebook script.
+3. Save the best model as `best_model.pth`.
+4. Download `best_model.pth` to your local `model_store/` directory for serving.
+
+---
+
+## 🚀 How to Run Locally
+
+> **Note:** Make sure Python 3.8+ and Java 11+ are installed. GPU is optional but recommended.
+
+### 🧩 1. Clone the Repo
+
+```bash
+git clone https://github.com/yourusername/skin-lesion-classification.git
+cd skin-lesion-classification
 ```
 
-## Technology Stack
+### 📦 2. Setup Virtual Environment
 
-- **Deep Learning**: PyTorch, Vision Transformers (ViT)
-- **Model Serving**: TorchServe
-- **MLOps**: MLflow (Tracking, Registry)
-- **Web Interface**: Streamlit
-- **Image Processing**: OpenCV, Pillow
-- **Visualization**: Matplotlib, Plotly
+```bash
+python -m venv lesenv
+source lesenv/bin/activate  # or lesenv\Scripts\activate on Windows
+pip install -r requirements.txt
+```
 
-## Installation
+### 📥 3. Place Pretrained Model
 
-### Prerequisites
+Download the trained model (`best_model.pth`) from your Kaggle training notebook and place it here:
 
-- Python 3.8+
-- PyTorch 2.0+
-- Java 11+ (for TorchServe)
+```bash
+mkdir -p model_store
+# move or copy your model
+cp ~/Downloads/best_model.pth model_store/
+```
 
-### Setup
+---
 
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/yourusername/skin-lesion-classification.git
-   cd skin-lesion-classification
-   ```
+## ⚙️ Step-by-Step Execution
 
-2. **Create and activate virtual environment**:
-   ```bash
-   python -m venv lesenv
-   source lesenv/bin/activate
-   ```
+### ▶️ Start MLflow Tracking Server
 
-3. **Install dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Download pretrained model**:
-   ```bash
-   wget https://example.com/models/best_model.pth -P model_store/
-   ```
-
-## Usage
-
-### 1. Start MLflow Tracking Server
 ```bash
 cd mlflow_tracking
 chmod +x mlflow_server.sh
 ./mlflow_server.sh
 ```
 
-### 2. Register Model in MLflow
+Access MLflow UI: [http://localhost:5001](http://localhost:5001)
+
+---
+
+### 📌 Register the Model to MLflow
+
 ```bash
+cd ..
 python register_model.py
 ```
 
-### 3. Start TorchServe
+---
+
+### 🔥 Start TorchServe
+
 ```bash
 cd torchserve
 chmod +x start_torchserve.sh
 ./start_torchserve.sh
 ```
 
-### 4. Launch Streamlit Application
+TorchServe API runs at: [http://localhost:8080/predictions/skin\_vit](http://localhost:8080/predictions/skin_vit)
+
+---
+
+### 🖼️ Run Streamlit Interface
+
 ```bash
-cd streamlit_app
+cd ../streamlit_app
 streamlit run app.py
 ```
 
-### 5. Access the Applications
-- **Streamlit UI**: http://localhost:8501
-- **MLflow UI**: http://localhost:5001
-- **TorchServe API**: http://localhost:8080/predictions/skin_vit
+Visit the app at: [http://localhost:8501](http://localhost:8501)
 
-## Project Structure
+---
+
+
+## 🧬 Dataset
+
+The project uses the [ISIC 2019 Challenge Dataset](https://challenge.isic-archive.com/data/) which contains:
+
+* **25,331 training images**
+* **8,232 test images**
+* **9 diagnostic labels**:
+
+  * Melanoma
+  * Melanocytic nevus
+  * Basal cell carcinoma
+  * Actinic keratosis
+  * Benign keratosis
+  * Dermatofibroma
+  * Vascular lesion
+  * Squamous cell carcinoma
+  * None of the above
+
+---
+
+## 🔧 Customize / Retrain
+
+### To Retrain Locally (Optional):
+
+1. Place your dataset in the following format:
 
 ```
-skin-lesion-classification/
-├── mlflow_tracking/              # MLflow server configuration
-│   └── mlflow_server.sh
-├── torchserve/                   # TorchServe configuration
-│   ├── config.properties
-│   └── start_torchserve.sh
-├── streamlit_app/                # Streamlit application
-│   ├── app.py                    # Main application
-│   └── utils.py                  # Helper functions
-├── model_store/                  # Pretrained models
-│   └── best_model.pth
-├── training/                     # Training scripts
-│   ├── train.py                  # Training pipeline
-│   └── dataset.py                # Data loading utilities
-├── handlers/                     # TorchServe handlers
-│   └── skin_lesion_handler.py
-├── requirements.txt              # Python dependencies
-└── README.md                     # Project documentation
+data/
+├── Train/
+│   ├── Melanoma/
+│   ├── Nevus/
+│   └── ...
+└── Test/
+    ├── Melanoma/
+    ├── Nevus/
+    └── ...
 ```
 
-## Dataset
+2. Run training:
 
-The system uses the [ISIC 2019 Challenge Dataset](https://challenge.isic-archive.com/data/) which contains:
+```bash
+cd training
+python train.py
+```
 
-- 25,331 training images
-- 8,232 test images
-- 9 diagnostic categories:
-  - Melanoma
-  - Melanocytic nevus
-  - Basal cell carcinoma
-  - Actinic keratosis
-  - Benign keratosis
-  - Dermatofibroma
-  - Vascular lesion
-  - Squamous cell carcinoma
-  - None of the above
+3. Monitor in MLflow at: [http://localhost:5001](http://localhost:5001)
 
-## Customization
 
-To train your own model:
-
-1. Place dataset in `data/` directory:
-   ```
-   data/
-   ├── Train/
-   │   ├── Melanoma/
-   │   ├── Nevus/
-   │   └── ...
-   └── Test/
-       ├── Melanoma/
-       ├── Nevus/
-       └── ...
-   ```
-
-2. Run training pipeline:
-   ```bash
-   cd training
-   python train.py
-   ```
-
-3. Monitor training in MLflow: http://localhost:5001
