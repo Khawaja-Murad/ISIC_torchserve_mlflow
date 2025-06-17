@@ -1,0 +1,44 @@
+version: "3.9"
+
+services:
+  mlflow:
+    image: python:3.9-slim
+    container_name: mlflow_server
+    working_dir: /app/mlflow_tracking
+    volumes:
+      - ./mlflow_tracking:/app/mlflow_tracking
+      - ./mlruns:/app/mlruns
+    ports:
+      - "5001:5001"
+    command: bash mlflow_server.sh
+
+  torchserve:
+    image: pytorch/torchserve:latest
+    container_name: torchserve_api
+    working_dir: /app
+    volumes:
+      - .:/app
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    command: >
+      torchserve --start
+      --model-store /app
+      --models skin_vit=skin_vit.mar
+      --ts-config /app/config.properties
+      --ncs
+
+  streamlit:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: streamlit_ui
+    working_dir: /app/streamlit_app
+    volumes:
+      - ./streamlit_app:/app/streamlit_app
+    ports:
+      - "8501:8501"
+    depends_on:
+      - mlflow
+      - torchserve
+    command: streamlit run app.py

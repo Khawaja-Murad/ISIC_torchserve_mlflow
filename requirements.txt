@@ -1,0 +1,8 @@
+streamlit
+requests
+mlflow
+torch
+torchvision
+matplotlib
+pillow
+opencv-python
