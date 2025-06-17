@@ -1,4 +1,3 @@
-# streamlit_app/app.py
 import streamlit as st
 import requests
 import mlflow
@@ -35,6 +34,66 @@ def predict_image(image_bytes):
         return {"error": str(e)}
 
 
+def plot_prediction(image, prediction_result):
+    """Create visualization with all class probabilities"""
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 8))
+
+    # Display image
+    ax1.imshow(image)
+    ax1.set_title("Input Image")
+    ax1.axis("off")
+
+    # Get class names and confidences
+    classes = list(prediction_result.keys())
+    confidences = [prediction_result[cls] for cls in classes]
+
+    # Sort by confidence
+    sorted_indices = np.argsort(confidences)[::-1]
+    sorted_classes = [classes[i] for i in sorted_indices]
+    sorted_confidences = [confidences[i] for i in sorted_indices]
+
+    # Create colormap - highest confidence in green
+    colors = [
+        "#2ecc71" if i == sorted_indices[0] else "#3498db" for i in range(len(classes))
+    ]
+
+    # Display prediction probabilities
+    y_pos = np.arange(len(classes))
+    bars = ax2.barh(y_pos, sorted_confidences, align="center", color=colors)
+    ax2.set_yticks(y_pos)
+    ax2.set_yticklabels(sorted_classes)
+    ax2.invert_yaxis()
+    ax2.set_xlabel("Confidence")
+    ax2.set_title("Prediction Probabilities")
+    ax2.set_xlim(0, 1)
+
+    # Add confidence values to bars
+    for i, bar in enumerate(bars):
+        width = bar.get_width()
+        ax2.text(
+            width + 0.01,
+            bar.get_y() + bar.get_height() / 2,
+            f"{width:.4f}",
+            ha="left",
+            va="center",
+        )
+
+    # Highlight top prediction
+    ax2.text(
+        0.95,
+        0.5,
+        f"TOP PREDICTION: {sorted_classes[0]}",
+        transform=ax2.transAxes,
+        fontsize=12,
+        verticalalignment="top",
+        horizontalalignment="right",
+        bbox=dict(boxstyle="round", facecolor="#2ecc71", alpha=0.3),
+    )
+
+    plt.tight_layout()
+    return fig
+
+
 # Main application
 st.title("🩺 Skin Lesion Classification")
 st.markdown(
@@ -48,7 +107,8 @@ try:
     current_version = (
         max([int(mv.version) for mv in model_versions]) if model_versions else 1
     )
-except:
+except Exception as e:
+    st.warning(f"Couldn't connect to MLflow: {str(e)}")
     model_versions = []
     current_version = 1
 
@@ -70,21 +130,27 @@ with st.sidebar:
             col1, col2 = st.columns(2)
             with col1:
                 if st.button("Stage to Production"):
-                    client.transition_model_version_stage(
-                        name="skin_vit", version=version, stage="Production"
-                    )
-                    st.success("Model staged to production!")
-                    time.sleep(1)
-                    st.rerun()
+                    try:
+                        client.transition_model_version_stage(
+                            name="skin_vit", version=version, stage="Production"
+                        )
+                        st.success("Model staged to production!")
+                        time.sleep(1)
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Failed to stage model: {str(e)}")
 
             with col2:
                 if st.button("Stage to Staging"):
-                    client.transition_model_version_stage(
-                        name="skin_vit", version=version, stage="Staging"
-                    )
-                    st.success("Model staged to staging!")
-                    time.sleep(1)
-                    st.rerun()
+                    try:
+                        client.transition_model_version_stage(
+                            name="skin_vit", version=version, stage="Staging"
+                        )
+                        st.success("Model staged to staging!")
+                        time.sleep(1)
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Failed to stage model: {str(e)}")
     else:
         st.warning("No models in registry")
 
@@ -110,83 +176,58 @@ if uploaded_file is not None:
             prediction = predict_image(img_bytes)
             latency = time.time() - start_time
 
-            # Log prediction to MLflow
-            try:
-                with mlflow.start_run(run_name="Streamlit_Prediction"):
-                    # Log prediction metadata
-                    mlflow.log_metric("latency_ms", latency * 1000)
-                    mlflow.log_param("model_version", current_version)
+            # Handle prediction response
+            if (
+                len(prediction) > 0
+            ):  # isinstance(prediction, list) and len(prediction) > 0:
+                result = prediction  # [0]
 
-                    # Log image
-                    mlflow.log_image(image, "input_image.jpg")
+                # Display results
+                st.subheader("Analysis Results")
+                st.markdown(
+                    f"""
+                **Predicted Condition**: {result.get('class', 'N/A')}  
+                **Confidence**: {result.get('confidence', 0):.2%}  
+                **Class Index**: {result.get('label_index', 'N/A')}
+                """
+                )
 
-                    # Handle successful prediction
-                    if (
-                        len(prediction) > 0
-                    ):  # isinstance(prediction, list) and len(prediction) > 0:
-                        result = prediction
+                # Create visualization if we have all confidences
+                if "all_confidences" in result:
+                    fig = plot_prediction(image, result["all_confidences"])
+                    st.pyplot(fig)
 
-                        # Display results
-                        st.subheader("Analysis Results")
-                        st.markdown(
-                            f"""
-                        **Predicted Condition**: {result.get('class', 'N/A')}  
-                        **Confidence**: {result.get('confidence', 0):.2%}  
-                        **Class Index**: {result.get('label_index', 'N/A')}
-                        """
-                        )
+                    # Log to MLflow
+                    try:
+                        with mlflow.start_run(run_name="Streamlit_Prediction"):
+                            # Log basic info
+                            mlflow.log_metric("latency_ms", latency * 1000)
+                            mlflow.log_param("model_version", current_version)
+                            mlflow.log_metric("confidence", result.get("confidence", 0))
+                            mlflow.log_param(
+                                "predicted_class", result.get("class", "unknown")
+                            )
 
-                        # Log prediction results
-                        mlflow.log_metric("confidence", result.get("confidence", 0))
-                        mlflow.log_param(
-                            "predicted_class", result.get("class", "unknown")
-                        )
+                            # Log image
+                            mlflow.log_image(image, "input_image.jpg")
 
-                        # Create visualization
-                        classes = [
-                            "actinic keratosis",
-                            "basal cell carcinoma",
-                            "dermatofibroma",
-                            "melanoma",
-                            "nevus",
-                            "pigmented benign keratosis",
-                            "seborrheic keratosis",
-                            "squamous cell carcinoma",
-                            "vascular lesion",
-                        ]
-                        confidences = {c: 0 for c in classes}
-                        if "class" in result and "confidence" in result:
-                            confidences[result["class"]] = result["confidence"]
+                            # Log all probabilities
+                            for cls, conf in result["all_confidences"].items():
+                                mlflow.log_metric(f"prob_{cls}", conf)
 
-                        fig, ax = plt.subplots(figsize=(8, 6))
-                        y_pos = np.arange(len(classes))
-                        ax.barh(
-                            y_pos,
-                            [confidences[c] for c in classes],
-                            align="center",
-                            color="skyblue",
-                        )
-                        ax.set_yticks(y_pos)
-                        ax.set_yticklabels(classes)
-                        ax.invert_yaxis()
-                        ax.set_xlabel("Confidence")
-                        ax.set_title("Prediction Probabilities")
-                        plt.tight_layout()
+                            # Save and log visualization
+                            fig.savefig("prediction_plot.png")
+                            mlflow.log_artifact("prediction_plot.png")
 
-                        st.pyplot(fig)
-
-                        # Save and log visualization
-                        fig.savefig("prediction_plot.png")
-                        mlflow.log_artifact("prediction_plot.png")
-
-                        st.success("✅ Prediction logged to MLflow!")
-                    else:
-                        st.error(
-                            f"❌ Prediction failed: {prediction.get('error', 'Unknown error')}"
-                        )
-                        mlflow.log_param("error", str(prediction))
-            except Exception as e:
-                st.error(f"❌ Failed to log to MLflow: {str(e)}")
+                            st.success("✅ Prediction logged to MLflow!")
+                    except Exception as e:
+                        st.error(f"❌ MLflow logging failed: {str(e)}")
+                else:
+                    st.warning("⚠️ Full confidence data not available")
+            else:
+                st.error(
+                    f"❌ Prediction failed: {prediction.get('error', 'Unknown error')}"
+                )
 
 # Model Performance Section
 st.header("Model Performance Monitoring")
