@@ -49,26 +49,14 @@ TorchServe requires a serialized `.pt` TorchScript model and a `.mar` archive. H
 
 ### ✅ 1. Convert `.pth` to `.pt`
 
-Use the script `convert_to_torchscript.py` (you must create it or add to your pipeline):
+Use the script `pth_to_pt.py` (you must create it or add to your pipeline):
 
-```python
-# convert_to_torchscript.py
-import torch
-from model import ViTModel  # your ViT model definition
 
-model = ViTModel()
-model.load_state_dict(torch.load("model_store/best_model.pth", map_location='cpu'))
-model.eval()
-
-example = torch.rand(1, 3, 224, 224)
-traced_script_module = torch.jit.trace(model, example)
-traced_script_module.save("model_store/skin_vit.pt")
-```
 
 Run it:
 
 ```bash
-python convert_to_torchscript.py
+python pth_to_pt.py
 ```
 
 ---
