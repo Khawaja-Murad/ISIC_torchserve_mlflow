@@ -1,6 +1,6 @@
 
-# 🧠 Skin Lesion Classification System
 
+# 🧠 Skin Lesion Classification System
 
 
 ## A Complete MLOps Pipeline for Medical Image Diagnosis
@@ -14,7 +14,7 @@ This project delivers an end-to-end deep learning solution for classifying **ski
 * 🧠 **ViT-based Classifier**: Trained on Kaggle using state-of-the-art techniques
 * 🔁 **MLOps-Ready**: Includes model serving, tracking, and UI — all container-free and locally deployable
 * 📈 **MLflow Integration**: Log, version, and monitor experiments and predictions
-* 🚀 **TorchServe Deployment**: Easily serve PyTorch models as APIs
+* 🔥 **TorchServe API**: Serve the model via REST API using `.mar` file
 * 🌐 **Streamlit Frontend**: Drag & drop interface for quick analysis
 * 🔒 **Local & Private**: All systems run locally — no cloud or external dependencies
 
@@ -23,7 +23,7 @@ This project delivers an end-to-end deep learning solution for classifying **ski
 ## 📦 Tech Stack
 
 * **Training**: PyTorch, Vision Transformer (ViT), Kaggle Notebook
-* **Model Serving**: TorchServe
+* **Model Serving**: TorchServe (`.pt` + `.mar`)
 * **Experiment Tracking**: MLflow
 * **Frontend**: Streamlit
 * **Image Handling**: Pillow, OpenCV
@@ -35,12 +35,73 @@ This project delivers an end-to-end deep learning solution for classifying **ski
 
 Training was performed on [Kaggle](https://www.kaggle.com/) using its free GPU resources.
 
-### To Train on Kaggle:
+### 📍 On Kaggle:
 
-1. Upload your data to Kaggle or use ISIC 2019 via external URL.
-2. Use the notebook in `/training/train.py` as a Kaggle Notebook script.
-3. Save the best model as `best_model.pth`.
-4. Download `best_model.pth` to your local `model_store/` directory for serving.
+1. Upload and run the notebook in `/training/train.py`.
+2. Export the best checkpoint as `best_model.pth`.
+3. Download `best_model.pth` to your local `model_store/` directory.
+
+---
+
+## 🔁 Convert `.pth` → `.pt` → `.mar` for TorchServe
+
+TorchServe requires a serialized `.pt` TorchScript model and a `.mar` archive. Here's how to do it:
+
+### ✅ 1. Convert `.pth` to `.pt`
+
+Use the script `convert_to_torchscript.py` (you must create it or add to your pipeline):
+
+```python
+# convert_to_torchscript.py
+import torch
+from model import ViTModel  # your ViT model definition
+
+model = ViTModel()
+model.load_state_dict(torch.load("model_store/best_model.pth", map_location='cpu'))
+model.eval()
+
+example = torch.rand(1, 3, 224, 224)
+traced_script_module = torch.jit.trace(model, example)
+traced_script_module.save("model_store/skin_vit.pt")
+```
+
+Run it:
+
+```bash
+python convert_to_torchscript.py
+```
+
+---
+
+### ✅ 2. Create `.mar` File
+
+TorchServe needs the following:
+
+* `skin_vit.pt` – TorchScript model
+* `skin_lesion_handler.py` – custom handler
+* `mar_config/skin_lesion_model_config.json` – metadata config
+
+Then run:
+
+```bash
+torch-model-archiver \
+  --model-name skin_vit \
+  --version 1.0 \
+  --serialized-file model_store/skin_vit.pt \
+  --handler handlers/skin_lesion_handler.py \
+  --extra-files "mar_config/skin_lesion_model_config.json" \
+  --export-path model_store/ \
+  --force
+```
+
+This will generate:
+
+```
+model_store/
+└── skin_vit.mar
+```
+
+Now you're ready to serve it!
 
 ---
 
@@ -65,13 +126,13 @@ pip install -r requirements.txt
 
 ### 📥 3. Place Pretrained Model
 
-Download the trained model (`best_model.pth`) from your Kaggle training notebook and place it here:
+Download the trained `.pth` from Kaggle and place it in:
 
 ```bash
-mkdir -p model_store
-# move or copy your model
-cp ~/Downloads/best_model.pth model_store/
+model_store/best_model.pth
 ```
+
+Then convert to `.pt` and `.mar` using steps above.
 
 ---
 
@@ -85,11 +146,11 @@ chmod +x mlflow_server.sh
 ./mlflow_server.sh
 ```
 
-Access MLflow UI: [http://localhost:5001](http://localhost:5001)
+Access: [http://localhost:5001](http://localhost:5001)
 
 ---
 
-### 📌 Register the Model to MLflow
+### 📌 Register Model to MLflow
 
 ```bash
 cd ..
@@ -106,47 +167,35 @@ chmod +x start_torchserve.sh
 ./start_torchserve.sh
 ```
 
-TorchServe API runs at: [http://localhost:8080/predictions/skin\_vit](http://localhost:8080/predictions/skin_vit)
+TorchServe API: [http://localhost:8080/predictions/skin\_vit](http://localhost:8080/predictions/skin_vit)
 
 ---
 
-### 🖼️ Run Streamlit Interface
+### 🖼️ Launch Streamlit Interface
 
 ```bash
 cd ../streamlit_app
 streamlit run app.py
 ```
 
-Visit the app at: [http://localhost:8501](http://localhost:8501)
+Streamlit App: [http://localhost:8501](http://localhost:8501)
 
 ---
 
 
 ## 🧬 Dataset
 
-The project uses the [ISIC 2019 Challenge Dataset](https://challenge.isic-archive.com/data/) which contains:
+We use the [ISIC 2019 Dataset](https://challenge.isic-archive.com/data/) with:
 
 * **25,331 training images**
 * **8,232 test images**
-* **9 diagnostic labels**:
-
-  * Melanoma
-  * Melanocytic nevus
-  * Basal cell carcinoma
-  * Actinic keratosis
-  * Benign keratosis
-  * Dermatofibroma
-  * Vascular lesion
-  * Squamous cell carcinoma
-  * None of the above
+* **9 categories**, including melanoma, nevus, and carcinoma
 
 ---
 
-## 🔧 Customize / Retrain
+## 🔧 Custom Training
 
-### To Retrain Locally (Optional):
-
-1. Place your dataset in the following format:
+1. Place your dataset in this format:
 
 ```
 data/
@@ -156,17 +205,15 @@ data/
 │   └── ...
 └── Test/
     ├── Melanoma/
-    ├── Nevus/
     └── ...
 ```
 
-2. Run training:
+2. Run training on Kaggle or locally:
 
 ```bash
 cd training
 python train.py
 ```
 
-3. Monitor in MLflow at: [http://localhost:5001](http://localhost:5001)
-
+3. Track results at [http://localhost:5001](http://localhost:5001)
 
